@@ -370,11 +370,25 @@ func (m *Miniredis) cmdZinterstore(c *server.Peer, cmd string, args []string) {
 			if !db.exists(key) {
 				continue
 			}
-			if db.t(key) != "zset" {
+			if db.t(key) != "zset" && db.t(key) != "set" {
 				c.WriteError(msgWrongType)
 				return
 			}
-			for _, el := range db.ssetElements(key) {
+
+			var elems ssElems
+			switch db.t(key) {
+			case "zset":
+				elems = db.ssetElements(key)
+			case "set":
+				for _, s := range db.setMembers(key) {
+					elems = append(elems, ssElem{float64(1.0), s})
+				}
+			default:
+				c.WriteError(msgWrongType)
+				return
+			}
+
+			for _, el := range elems {
 				score := el.score
 				if withWeights {
 					score *= weights[i]
